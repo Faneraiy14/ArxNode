@@ -167,22 +167,33 @@ closeCanvas(canvas)
 ### Вбудовані функції
 - `print(val)` - вивід у консоль
 - `readLine()`, `readInt()`, `readDouble()` - читання з консолі
-- `sqrt(x)`, `sin(x)`, `cos(x)`, `tan(x)`, `pow(x,y)`, `abs(x)`, `round/floor/ceil(x)`, `max/min(a,b)`, `clamp(x,min,max)` - математика
+- `sqrt(x)`, `sin(x)`, `cos(x)`, `tan(x)`, `pow(x,y)`, `abs(x)`, `round/floor/ceil(x)`, `clamp(x,min,max)` - математика
+- `max/min(a,b)` або `max/min(arr)` - максимум/мінімум двох чисел або всього масиву
+- `toFixed(x,n)` - число як рядок з n знаками після коми, напр. `toFixed(3.14159, 2)` -> `"3.14"`
 - `readFile(path)`, `writeFile(path, content)`, `appendFile(path, content)`, `fileExists(path)`, `readLines(path)` - робота з файлами
 - `toString(v)`, `toInt(v)`, `toDouble(v)`, `typeOf(v)`, `isNumber/isString/isArray/isBool(v)` - перетворення та перевірка типів
 - `charCode(s)` - код першого символу рядка (наприклад, `charCode("A")` -> 65); `fromCharCode(code)` - символ за кодом
 - `len(v)`, `substring(s,start,len)`, `replace/toUpper/toLower/contains/startsWith/endsWith(s,...)`, `split(s,sep)`, `join(arr,sep)` - рядки
+- `trim(s)` - прибирає пробіли з обох боків; `repeat(s,n)` - повторює рядок n разів
+- `indexOf(v,item)` - позиція елемента/підрядка (-1, якщо нема); працює і для рядків, і для масивів
+- `reverse(v)` - розвертає рядок або масив (оригінальний масив не змінює)
 - `append(arr,v)`, `pop(arr)`, `insert(arr,i,v)`, `removeAt(arr,i)`, `clear(arr)` - масиви
+- `slice(arr,start,end?)` - підмасив від start до end (або до кінця); `unique(arr)` - прибирає дублікати, лишає порядок
 - `newMap()`, `mapSet(m,k,v)`, `mapGet(m,k)`, `mapHas(m,k)`, `mapRemove(m,k)`, `mapKeys(m)`, `mapValues(m)` - мапи/словники
 - `sort(arr,cmp)`, `mapArr(arr,fn)`, `filter(arr,fn)`, `reduce(arr,fn,init)` - функції вищого порядку над масивами
 - `toJson(v)`, `fromJson(str)` - серіалізація в JSON і назад
 - `sleep(ms)` - пауза виконання
 - `createCanvas(title,w,h)`, `clearCanvas`, `drawRect`, `drawCircle`, `drawLine`, `drawText`, `presentCanvas`, `canvasShouldClose`, `closeCanvas` - 2D графіка
 - `project3D(canvas,x,y,z,camDistance)` - проекція 3D-точки в 2D для рендеру 3D-сцен
+- `guiWindow(title,w,h)`, `guiLabel(text,x,y,w,h)`, `guiButton(text,x,y,w,h)`, `guiTextBox(x,y,w,h)` - вікна на Windows Forms
+- `guiAdd(parent,child)` - додати елемент у вікно; `guiSetText(control,text)`/`guiGetText(control)` - змінити/прочитати текст
+- `guiOnAction(button,fn)` - викликати ArxLang-функцію `fn` при кліку (звичайну функцію-значення, як у `sort(arr,cmp)` — без дужок, не рядок з іменем)
+- `guiShow(win)` - показати вікно (блокує, доки вікно не закриють)
 - `isKeyDown(key)`, `isMouseDown(canvas)`, `getMouseX/Y(canvas)` - ввід для вікна
 - `randomInt(min,max)`, `randomDouble(min,max)`, `now()`, `today()`, `timestamp()` - утиліти
 - `osPlatform()`, `osArchitecture()`, `osMemory()`, `osCpuCount()`, `osEnv(name)`, `osCwd()` - інформація про систему
-- `httpGet(url)`, `httpServer(port)` - мережа (експериментально)
+- `httpGet(url)`, `urlStatus(url)` - HTTP-запити
+- `httpServer(port, handler)` - HTTP-сервер; `handler(path, method)` викликається на кожен запит і повертає рядок тіла відповіді. Блокує назавжди (Ctrl+C для зупинки)
 - `guiWindow(title, w, h)`, `guiButton(text, x, y, w, h)`, `guiShow(win)` - GUI (експериментально)
 
 ## Як запустити
