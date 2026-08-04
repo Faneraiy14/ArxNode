@@ -14,6 +14,32 @@ var isCool = true
 var nothing = null       // isNull(nothing) -> true
 ```
 
+### Рядки та інтерполяція
+Конкатенація через `+` працює з будь-яким типом — число/bool/null самі
+приводяться до рядка:
+```arx
+var вік = 20
+print("Мені " + вік + " років")   // Мені 20 років
+```
+
+Для складніших рядків зручніша інтерполяція `${вираз}` — усередині може
+бути будь-який вираз ArxLang (змінна, арифметика, виклик функції):
+```arx
+var імя = "Аня"
+var вік = 20
+print("Привіт, ${імя}! Тобі ${вік} ${вік + 1 - 1} років.")
+print("Подвоєне: ${вік * 2}")
+```
+Це не окрема сутність рантайму — компілятор розгортає `"a${b}c"` у
+звичайне `"a" + b + "c"` ще на етапі лексера, тому працює скрізь, де й
+`+`, без жодних обмежень.
+
+Щоб `${` не вважався початком інтерполяції, а лишився звичайним
+текстом — заекрануй символ долара: `\${`.
+```arx
+print("Ціна: \${не інтерполяція}")   // Ціна: ${не інтерполяція}
+```
+
 ### Функції
 Функції оголошуються за допомогою `func`. Точка входу - функція `main`.
 ```arx
@@ -25,6 +51,22 @@ func main() {
     var result = add(5, 10)
     print("Результат: " + result)
 }
+```
+
+`func` можна оголосити й усередині іншої функції — видима лише в межах
+"батька" (лексично, як у більшості мов): однакова назва в різних
+"батьках" не конфліктує, кожен викликає свою. Це не замикання — вкладена
+функція не бачить локальних змінних "батька"; для захоплення оточення
+потрібна анонімна лямбда (`var f = func() {...}`, розділ нижче).
+
+```arx
+func outer() {
+    func inner(x) {
+        return x * 2
+    }
+    return inner(21)
+}
+print(outer()) // 42
 ```
 
 ### Управляючі конструкції
@@ -138,6 +180,71 @@ func main() {
 ```
 Шлях в `import` — відносно файлу, що імпортує. Циклічні та повторні імпорти безпечні (кожен файл обробляється один раз).
 
+Вибірковий import — тягне лише перелічені функції/структури/глобальні змінні, а не весь файл:
+```arx
+import "math_helpers.arx" { square }
+
+func main() {
+    print(square(5))   // 25 - cube() з того ж файлу лишається неімпортованим
+}
+```
+Методи названої структури підтягуються автоматично разом з нею. Якщо переліченого імені нема у файлі — помилка одразу при запуску (ще до виконання коду). Функції з іменем на `_` (напр. `_helper`) вважаються приватними хелперами модуля й тягнуться завжди, навіть якщо їх не перелічено — так публічна функція з того ж файлу може викликати свій внутрішній хелпер незалежно від того, що саме імпортує викликач.
+
+### Стандартна бібліотека (`lib/`)
+У теці `lib/` в корені ArxEcosystem лежать готові `.arx`-модулі — підключаються звичайним `import` за відносним шляхом (`../lib/...` з файлу в `tests/`, або `lib/...`, якщо скрипт лежить поруч із самою `lib/`):
+
+- **`lib/datetime.arx`** — арифметика дат з правильними високосними роками (алгоритм Говарда Гіннанта, чиста ArxLang): `daysFromCivil(y,m,d)`/`civilFromDays(z)` (дата <-> днів від епохи), `isLeapYear(y)`, `dayOfWeek(y,m,d)` (0=неділя), `dayName(weekday)`, `addDays(y,m,d,n)`, `diffDays(y1,m1,d1,y2,m2,d2)`, `formatDate(y,m,d)`, `parseDate(s)`, `todayCivil()`.
+- **`lib/strings.arx`** — `capitalize(s)`, `titleCase(s)`, `isBlank(s)`, `isEmpty(s)`, `padLeft(s, len, ch)`, `padRight(s, len, ch)`, `countOccurrences(s, sub)`.
+- **`lib/collections.arx`** — `range(n)`, `rangeFrom(start, end)`, `sum(arr)`, `first(arr)`, `last(arr)`, `flatten(arr)` (один рівень), `zip(arr1, arr2)`, `chunk(arr, size)`, `count(arr, fn)`.
+- **`lib/testing.arx`** — `assertTrue(cond, msg)`, `assertFalse(cond, msg)`, `assertEqual(actual, expected, msg)`, `assertThrows(fn, msg)`. Провал — звичайний `throw`, тож або лови його `try/catch` сам, або лишай непійманим, щоб процес впав з ненульовим кодом (зручно для CI).
+  ```arx
+  import "lib/testing.arx" { assertEqual }
+
+  func main() {
+      assertEqual(2 + 2, 4, "2+2 має дорівнювати 4")
+      print("тест пройдено")
+  }
+  ```
+- **`lib/http_client.arx`** — обгортка над `httpGet`/`httpPost`/`httpRequest` з автоматичною JSON-серіалізацією (у дусі Python-бібліотеки `requests`): `getJson(url)`, `postJson(url, data)`, `requestJson(url, method, data)` (`data` — мапа/масив або `null`), `requestStatus(url, method, data)` — лише код статусу.
+  ```arx
+  import "lib/http_client.arx" { postJson }
+
+  func main() {
+      var data = newMap()
+      mapSet(data, "name", "Святослав")
+      var response = postJson("https://httpbin.org/post", data)
+      print(toJson(response))
+  }
+  ```
+- **`lib/telegram.arx`** — обгортка над [Telegram Bot API](https://core.telegram.org/bots/api) (звичайний HTTPS+JSON, без WebSocket - тому повністю реалізований на самій ArxLang): `tgGetMe(token)`, `tgSendMessage(token, chatId, text)`, `tgGetUpdates(token, offset)`, `tgMessageText(update)`, `tgChatId(update)`, і блокуючий `tgPollLoop(token, handler)` для готового бота одним викликом. Токен читай через `osEnv("TELEGRAM_BOT_TOKEN")`, ніколи не хардкодь у скрипті. Повний робочий приклад ехо-бота: `programs/telegram_echo_bot.arx`.
+  ```arx
+  import "lib/telegram.arx" { tgPollLoop, tgMessageText, tgChatId, tgSendMessage }
+
+  func main() {
+      var token = osEnv("TELEGRAM_BOT_TOKEN")
+      tgPollLoop(token, func(update) {
+          var text = tgMessageText(update)
+          if !isNull(text) {
+              tgSendMessage(token, tgChatId(update), "Ехо: " + text)
+          }
+      })
+  }
+  ```
+- **`lib/discord.arx`** — мінімальний [Discord Gateway](https://discord.com/developers/docs/topics/gateway)-клієнт: `dSendMessage(token, channelId, text)` (REST), і блокуючий `dPollLoop(token, intents, handler)` — сам робить handshake (Hello -> Identify -> heartbeat за розкладом сервера) через нативний `wsConnect`/`wsSend`/`wsReceive`, `handler(eventName, data)` викликається на кожну подію (`"MESSAGE_CREATE"`, `"READY"` тощо). На розрив з'єднання сервером (напр. невірний токен - код 4004) виходить з циклу з чітким повідомленням, а не зависає чи падає. Токен - через `osEnv("DISCORD_BOT_TOKEN")`. Повний приклад: `programs/discord_echo_bot.arx`.
+  ```arx
+  import "lib/discord.arx" { dPollLoop, dSendMessage }
+
+  func main() {
+      var token = osEnv("DISCORD_BOT_TOKEN")
+      dPollLoop(token, 37377, func(eventName, data) {
+          if eventName == "MESSAGE_CREATE" {
+              dSendMessage(token, mapGet(data, "channel_id"), "Ехо: " + mapGet(data, "content"))
+          }
+      })
+  }
+  ```
+  Не забудь увімкнути "Message Content Intent" у Discord Developer Portal - без нього `content` завжди порожній.
+
 ### Функції вищого порядку та JSON
 ```arx
 var nums = [5, 2, 8, 1]
@@ -188,6 +295,9 @@ closeCanvas(canvas)
 - `sort(arr,cmp)`, `mapArr(arr,fn)`, `filter(arr,fn)`, `reduce(arr,fn,init)` - функції вищого порядку над масивами
 - `toJson(v)`, `fromJson(str)` - серіалізація в JSON і назад
 - `sleep(ms)` - пауза виконання
+- `exit(код)` - негайно завершує процес із заданим кодом виходу (рядки коду після exit() не виконуються) - для CI/скриптів, де потрібен конкретний код (0 успіх, інший - провал), без штучного throw (той завжди дає код 1)
+- `gc_stats()` - структура `{allocated, limit, bytesEstimate}` з обліком ArxLang-виділень (масиви/структури/мапи) поточного запуску; `gc_collect()` - форсує збирання сміття .NET і оновлює оцінку пам'яті; `gc_limit(n)` - встановлює ліміт кількості виділень, перевищення кидає помилку (можна зловити через `try/catch`, або задати ззовні через `ARX_GC_MAX_OBJECTS`)
+- `dbOpen(path)` - відкриває (чи створює) персистентну KV-базу [ArxDb](https://github.com/Faneraiy14/ArxDb) в теці за шляхом `path`; `dbSet(db,k,v)`, `dbGet(db,k)` (рядок або `null`), `dbHas(db,k)`, `dbDelete(db,k)` - значення в v1 лише рядки; `dbKeys(db,prefix?)` - масив ключів (опційно за префіксом); `dbCount(db)`; `dbCheckpoint(db)` - примусова компакція; `dbClose(db)` - закриває базу (компактує WAL, якщо він непорожній)
 - `createCanvas(title,w,h)`, `clearCanvas`, `drawRect`, `drawCircle`, `drawLine`, `drawText`, `presentCanvas`, `canvasShouldClose`, `closeCanvas` - 2D графіка
 - `project3D(canvas,x,y,z,camDistance)` - проекція 3D-точки в 2D для рендеру 3D-сцен
 - `guiWindow(title,w,h)`, `guiLabel(text,x,y,w,h)`, `guiButton(text,x,y,w,h)`, `guiTextBox(x,y,w,h)` - вікна на Windows Forms
@@ -198,7 +308,11 @@ closeCanvas(canvas)
 - `randomInt(min,max)`, `randomDouble(min,max)`, `now()`, `today()`, `timestamp()` - утиліти
 - `osPlatform()`, `osArchitecture()`, `osMemory()`, `osCpuCount()`, `osEnv(name)`, `osCwd()` - інформація про систему
 - `httpGet(url)`, `urlStatus(url)` - HTTP-запити
+- `httpPost(url, body)` - POST-запит з тілом `body` (Content-Type `application/json`), повертає тіло відповіді рядком
+- `httpRequest(url, method, body?, headers?)` - запит довільним методом (`"PUT"`, `"DELETE"`, `"PATCH"` тощо), повертає мапу `{status, body}`; `headers` - мапа (`newMap`/`mapSet`) для заголовків на кшталт `Authorization`
+- `wsConnect(url)` - відкриває WebSocket-з'єднання (`wss://`/`ws://`); `wsSend(ws, text)` - надсилає текстове повідомлення; `wsReceive(ws, timeoutMs?)` - блокує до наступного повідомлення або тайм-ауту (тоді повертає `null`); кидає помилку (лови через `try/catch`), якщо з'єднання розірване сервером; `wsClose(ws)` - закриває з'єднання
 - `httpServer(port, handler)` - HTTP-сервер; `handler(path, method)` викликається на кожен запит і повертає рядок тіла відповіді. Блокує назавжди (Ctrl+C для зупинки)
+- `regexTest(s, pattern)` - чи збігається рядок з regex-шаблоном (bool); `regexMatch(s, pattern)` - перший збіг або `null`; `regexFindAll(s, pattern)` - масив усіх збігів; `regexReplace(s, pattern, replacement)` - заміна всіх збігів
 - `guiWindow(title, w, h)`, `guiButton(text, x, y, w, h)`, `guiShow(win)` - GUI (експериментально)
 
 ## Як запустити
