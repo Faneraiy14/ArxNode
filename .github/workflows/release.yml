@@ -115,11 +115,14 @@ jobs:
           tar -czf "ArxNode-${{ matrix.rid }}.${{ matrix.archive_ext }}" -C publish-out .
 
       - name: Upload release asset
+        # На windows-latest run: без явного shell: виконується в pwsh, де
+        # "\" наприкінці рядка НЕ є продовженням команди (на відміну від
+        # bash) — звідси "Missing expression after unary operator '--'".
+        # Один рядок команди прибирає залежність від того, яка оболонка
+        # активна на конкретному раннері.
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.ref_name }}" "ArxNode-${{ matrix.rid }}.${{ matrix.archive_ext }}" \
-            --repo "${{ github.repository }}" --clobber
+        run: gh release upload "${{ github.ref_name }}" "ArxNode-${{ matrix.rid }}.${{ matrix.archive_ext }}" --repo "${{ github.repository }}" --clobber
 
   sync-docs:
     # README.md/GUIDE.md у самому репозиторії ArxNode (те, що видно на
