@@ -1,0 +1,159 @@
+name: Release
+
+# Спрацьовує при пуші тегу vX.Y.Z. ArxNode сам не містить вихідного коду
+# мови (він в ArxLang, ArxDb — окремі репозиторії) — тому щоразу заново
+# чекаутить обидва як сусідів (ArxLang.csproj посилається на ArxDb
+# відносним шляхом "../../../ArxDb/...") і публікує self-contained
+# однофайлові бінарники під усі три ОС. Досі це робилось вручну "коли
+# згадаю" — звідси реліз відставав від мови на тижні (string
+# interpolation, SHA-пінінг, пісочниця, REPL — усе було в ArxLang, але
+# не в жодному завантажуваному бінарнику).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create (or reuse) GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Реліз ${{ github.ref_name }} уже існує — продовжуємо (напр. повторний запуск після провалу збірки)"
+          else
+            gh release create "${{ github.ref_name }}" \
+              --repo "${{ github.repository }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes
+          fi
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            tfm: net10.0-windows
+            exe: ArxLang.exe
+            archive_ext: zip
+          - os: ubuntu-latest
+            rid: linux-x64
+            tfm: net10.0
+            exe: ArxLang
+            archive_ext: tar.gz
+          - os: macos-latest
+            rid: osx-x64
+            tfm: net10.0
+            exe: ArxLang
+            archive_ext: tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            tfm: net10.0
+            exe: ArxLang
+            archive_ext: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout ArxNode (install-скрипти, README, GUIDE, LICENSE)
+        uses: actions/checkout@v4
+        with:
+          path: ArxNode
+
+      - name: Checkout ArxLang (вихідний код мови)
+        uses: actions/checkout@v4
+        with:
+          repository: Faneraiy14/ArxLang
+          path: ArxLang
+
+      - name: Checkout ArxDb (залежність ArxLang.csproj)
+        uses: actions/checkout@v4
+        with:
+          repository: Faneraiy14/ArxDb
+          path: ArxDb
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish self-contained single-file
+        working-directory: ArxLang
+        run: >
+          dotnet publish src/ArxLang -c Release
+          -r ${{ matrix.rid }} -f ${{ matrix.tfm }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableWindowsTargeting=true
+          -p:DebugType=None
+          -o ../publish-out
+
+      - name: Package (Windows, zip)
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: |
+          Copy-Item ArxNode/install-arx.ps1 publish-out/
+          Copy-Item ArxNode/README.md publish-out/
+          Copy-Item ArxNode/GUIDE.md publish-out/
+          Copy-Item ArxNode/LICENSE publish-out/
+          Compress-Archive -Path publish-out/* -DestinationPath "ArxNode-${{ matrix.rid }}.zip"
+
+      - name: Package (Linux/Mac, tar.gz)
+        if: matrix.archive_ext == 'tar.gz'
+        run: |
+          cp ArxNode/install-arx.sh publish-out/
+          cp ArxNode/README.md publish-out/
+          cp ArxNode/GUIDE.md publish-out/
+          cp ArxNode/LICENSE publish-out/
+          chmod +x "publish-out/${{ matrix.exe }}" publish-out/install-arx.sh
+          tar -czf "ArxNode-${{ matrix.rid }}.${{ matrix.archive_ext }}" -C publish-out .
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" "ArxNode-${{ matrix.rid }}.${{ matrix.archive_ext }}" \
+            --repo "${{ github.repository }}" --clobber
+
+  sync-docs:
+    # README.md/GUIDE.md у самому репозиторії ArxNode (те, що видно на
+    # сторінці GitHub без завантаження архіву) інакше знову тихо
+    # відстає від ArxLang вже до наступного релізу — тому синхронізуємо
+    # їх автоматично одразу після успішної збірки, а не "коли згадаємо".
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ArxNode
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Faneraiy14/ArxLang
+          path: ArxLang
+
+      - name: Sync GUIDE.md from ArxLang
+        run: |
+          cp ArxLang/GUIDE.md ArxNode/GUIDE.md
+          sed -i 's/див\. INSTALL\.md/див. README.md/' ArxNode/GUIDE.md
+
+      - name: Commit if changed
+        working-directory: ArxNode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- GUIDE.md; then
+            git add GUIDE.md
+            git commit -m "Автосинхронізація GUIDE.md з ArxLang (реліз ${{ github.ref_name }})"
+            git push origin HEAD:main
+          else
+            echo "GUIDE.md уже актуальний — коміт не потрібен"
+          fi
