@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================
-# install-arx.sh — глобальна команда "arx" (Linux/Mac)
+# install-nx.sh — глобальна команда "nx" (Linux/Mac)
 #
-# Запуск (з розпакованого архіву релізу, поруч із бінарником ArxLang):
-#     bash install-arx.sh
+# Запуск (з розпакованого архіву релізу, поруч із бінарником Nx):
+#     bash install-nx.sh
 #
 # Без GUI/графіки — Windows Forms працює лише на Windows. Решта мови
 # (компілятор, VM, майже вся стандартна бібліотека) працює однаково.
@@ -15,11 +15,11 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Спершу шукаємо готовий бінарник поруч зі скриптом (реліз), потім
 # у build-теці (клон репозиторію розробника).
 candidates=(
-    "$script_dir/ArxLang"
-    "$script_dir/src/ArxLang/bin/Release/net10.0/linux-x64/publish/ArxLang"
-    "$script_dir/src/ArxLang/bin/Release/net10.0/osx-x64/publish/ArxLang"
-    "$script_dir/src/ArxLang/bin/Release/net10.0/osx-arm64/publish/ArxLang"
-    "$script_dir/src/ArxLang/bin/Debug/net10.0/ArxLang"
+    "$script_dir/Nx"
+    "$script_dir/src/NyxilumLang/bin/Release/net10.0/linux-x64/publish/Nx"
+    "$script_dir/src/NyxilumLang/bin/Release/net10.0/osx-x64/publish/Nx"
+    "$script_dir/src/NyxilumLang/bin/Release/net10.0/osx-arm64/publish/Nx"
+    "$script_dir/src/NyxilumLang/bin/Debug/net10.0/Nx"
 )
 
 exe=""
@@ -31,9 +31,9 @@ for candidate in "${candidates[@]}"; do
 done
 
 if [ -z "$exe" ]; then
-    echo "ArxLang не знайдено поруч зі скриптом і не зібрано локально." >&2
-    echo "Або поклади бінарник ArxLang (з Releases) у цю ж папку, або зберіть:" >&2
-    echo "    dotnet build src/ArxLang -f net10.0" >&2
+    echo "Nx не знайдено поруч зі скриптом і не зібрано локально." >&2
+    echo "Або поклади бінарник Nx (з Releases) у цю ж папку, або зберіть:" >&2
+    echo "    dotnet build src/NyxilumLang -f net10.0" >&2
     exit 1
 fi
 
@@ -43,7 +43,7 @@ echo "Знайдено: $exe"
 bin_dir="$HOME/.local/bin"
 mkdir -p "$bin_dir"
 
-wrapper="$bin_dir/arx"
+wrapper="$bin_dir/nx"
 cat > "$wrapper" <<EOF
 #!/usr/bin/env bash
 exec "$exe" "\$@"
@@ -69,7 +69,7 @@ echo ""
 echo "Готово."
 echo "Відкрий НОВИЙ термінал (або виконай 'source ~/.bashrc' чи 'source ~/.zshrc') і спробуй:"
 echo ""
-echo "    arx --version"
+echo "    nx --version"
 echo ""
 echo "GUI (guiWindow тощо) і графіка (createCanvas тощо) недоступні поза"
 echo "Windows — Windows Forms там не працює. Решта мови працює як завжди."
