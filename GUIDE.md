@@ -386,7 +386,7 @@ closeCanvas(canvas)
 - `guiWindow(title, w, h)`, `guiButton(text, x, y, w, h)`, `guiShow(win)` - GUI (експериментально)
 
 ## Як запустити
-Після встановлення (див. INSTALL.md) команда `nx` доступна на будь-якій
+Після встановлення (див. README.md) команда `nx` доступна на будь-якій
 платформі (Windows/Linux/Mac) — передайте шлях до файлу:
 `nx program.nx`
 
