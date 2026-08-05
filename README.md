@@ -47,6 +47,8 @@ nx --version
 | `nx` | REPL — виконання рядок за рядком, `exit()` для виходу |
 | `nx install owner/repo` | встановити бібліотеку з публічного GitHub-репозиторію |
 | `nx install` | встановити все з `nx.json` у поточній папці |
+| `nx uninstall name` | прибрати бібліотеку з `nx.json` і з `nx_modules/` |
+| `nx update` / `nx update name` | оновити всі бібліотеки чи одну на поточний default branch |
 | `nx format файл.nx` | форматувати файл |
 | `nx lint файл.nx` | перевірити файл на типові помилки |
 | `nx --version` | версія |
